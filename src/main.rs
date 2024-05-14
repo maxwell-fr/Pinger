@@ -4,7 +4,7 @@ use std::io::Write;
 use std::net::IpAddr;
 use std::time::Duration;
 use std::thread;
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc, Mutex};
 use ping_rs::*;
 use pinger::Target;
 
@@ -24,18 +24,21 @@ fn multiping() {
     let (sender, receiver) = mpsc::channel();
 
     let mut threads = vec![];
-    let mut targets: HashMap<IpAddr, Target> = HashMap::new();
+    let mut targets: HashMap<IpAddr, Arc<Mutex<Target>>> = HashMap::new();
 
     for ip in ips {
         let data = [8; 8];
         let sender = sender.clone();
         let friendly = format!("Tester {}", ip.to_string());
-        targets.insert(ip.clone(), Target::new(friendly, ip.clone(), 15, 5, 50, 10));
+        let target = Arc::new(Mutex::new(Target::new(friendly, ip.clone(),10,5,50,10)));
+        targets.insert(ip.clone(), target.clone());
         let thr = thread::spawn(move || {
             loop {
                 let res = send_ping(&ip, TIMEOUT, &data, Some(&PING_OPTS));
 
-                if sender.send((ip.clone(), res)).is_err() {
+                target.lock().unwrap().update_from_reply(res.into());
+
+                if sender.send(ip.clone()).is_err() {
                     break;
                 }
                 thread::sleep(SLEEPTIME10);
@@ -45,9 +48,9 @@ fn multiping() {
     }
 
     loop {
-        for (ip, reply) in receiver.try_iter() {
-            targets.get_mut(&ip).unwrap().update_from_reply(reply.into());
-            println!("\n{}: {:?}", targets[&ip].addr(), targets[&ip]);
+        for ip in receiver.try_iter() {
+            let t = targets[&ip].lock().unwrap();
+            println!("\n{}: {:?}", t.addr(), t);
         }
         print!("."); std::io::stdout().flush();
         thread::sleep(SLEEPTIME);
