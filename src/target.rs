@@ -10,7 +10,7 @@ pub struct Target {
     friendly_name: String,
     address: IpAddr,
 
-    config: TargetConfig,
+    options: TargetOptions,
 
     /// Most recent RTT (round trip time) in milliseconds
     last_rtt: u32,
@@ -31,17 +31,17 @@ pub struct Target {
 
 /// Contains Configuration information for a Target
 #[derive(Debug, Copy, Clone)]
-pub struct TargetConfig {
+pub struct TargetOptions {
     /// RTT above this value is considered "high"
-    rtt_high_threshold: u32,
+    pub rtt_high_threshold: u32,
 
     /// How long to wait (in seconds) between checks
-    sleep_period_sec: u32,
+    pub sleep_period_sec: u32,
     /// How long to wait (in seconds) for a response
-    timeout_period_sec: u32,
+    pub timeout_period_sec: u32,
 
     /// How many failed responses in a row are considered a problem
-    error_count_threshold: u32,
+    pub error_count_threshold: u32,
 }
 
 
@@ -63,7 +63,7 @@ impl Target {
             min_rtt: u32::MAX,
             rtt_hist: VecDeque::with_capacity(Self::HIST_SIZE),
             error_count: 0,
-            config: TargetConfig {
+            options: TargetOptions {
                 rtt_high_threshold,
                 sleep_period_sec,
                 timeout_period_sec,
@@ -136,6 +136,11 @@ impl Target {
     pub fn max_rtt(&self) -> u32 {
         self.max_rtt
     }
+
+    pub fn get_options(&self) -> &TargetOptions {
+        &self.options
+    }
+
 
 }
 

@@ -8,12 +8,12 @@ use std::time::Duration;
 
 use ping_rs::*;
 
-use pinger::Target;
+use pinger::{Pinger, Target};
 
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
 const TIMEOUT: Duration = Duration::from_secs(5);
 const SLEEPTIME: Duration = Duration::from_secs(1);
-const SLEEPTIMEP: Duration = Duration::from_millis(250);
+const SLEEPTIMEP: Duration = Duration::from_millis(4000);
 
 
 
@@ -24,27 +24,12 @@ fn multiping() {
             IpAddr::from([20,50,166,83])];
     let (sender, receiver) = mpsc::channel();
 
-    let mut threads = vec![];
+    let mut pingers = vec![];
 
     for ip in ips {
-        let data = [8; 8];
         let sender = sender.clone();
         let friendly = format!("Tester {}", ip.to_string());
-        let mut target = Box::new(Target::new(friendly, ip.clone(),10,5,50,10));
-        let thr = thread::spawn(move || {
-            loop {
-                let res = send_ping(&ip, TIMEOUT, &data, Some(&PING_OPTS));
-
-                target.update_from_reply(res.into());
-
-                if sender.send(target.clone()).is_err() {
-                    break;
-                }
-                thread::sleep(SLEEPTIMEP);
-
-            }
-        });
-        threads.push(thr);
+        pingers.push(Pinger::new(Target::new(friendly, ip.clone(),10,5,50,10), sender));
     }
 
     let mut ctr: u64 = 0;
@@ -63,7 +48,6 @@ fn multiping() {
         }
         std::io::stdout().flush();
         ctr += 1;
-
         thread::sleep(Duration::from_millis(1));
     }
 }
