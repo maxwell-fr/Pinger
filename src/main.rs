@@ -1,18 +1,19 @@
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::Write;
 use std::net::IpAddr;
-use std::time::Duration;
+use std::sync::mpsc;
+use std::sync::mpsc::TryRecvError;
 use std::thread;
-use std::sync::{Arc, mpsc, Mutex};
+use std::time::Duration;
+
 use ping_rs::*;
+
 use pinger::Target;
 
-
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
-const TIMEOUT: Duration = Duration::from_secs(15);
+const TIMEOUT: Duration = Duration::from_secs(5);
 const SLEEPTIME: Duration = Duration::from_secs(1);
-const SLEEPTIME10: Duration = Duration::from_secs(10);
+const SLEEPTIMEP: Duration = Duration::from_millis(250);
 
 
 
@@ -20,40 +21,50 @@ fn multiping() {
     let ips = vec![IpAddr::from([1,1,1,1]),
             IpAddr::from([8,8,8,8]),
             IpAddr::from([192,168,1,1]),
-            IpAddr::from([192,168,1,2])];
+            IpAddr::from([20,50,166,83])];
     let (sender, receiver) = mpsc::channel();
 
     let mut threads = vec![];
-    let mut targets: HashMap<IpAddr, Arc<Mutex<Target>>> = HashMap::new();
 
     for ip in ips {
         let data = [8; 8];
         let sender = sender.clone();
         let friendly = format!("Tester {}", ip.to_string());
-        let target = Arc::new(Mutex::new(Target::new(friendly, ip.clone(),10,5,50,10)));
-        targets.insert(ip.clone(), target.clone());
+        let mut target = Box::new(Target::new(friendly, ip.clone(),10,5,50,10));
         let thr = thread::spawn(move || {
             loop {
                 let res = send_ping(&ip, TIMEOUT, &data, Some(&PING_OPTS));
 
-                target.lock().unwrap().update_from_reply(res.into());
+                target.update_from_reply(res.into());
 
-                if sender.send(ip.clone()).is_err() {
+                if sender.send(target.clone()).is_err() {
                     break;
                 }
-                thread::sleep(SLEEPTIME10);
+                thread::sleep(SLEEPTIMEP);
+
             }
         });
         threads.push(thr);
     }
 
+    let mut ctr: u64 = 0;
+    println!("{:12} {:4}  {:4}  {:4}  {:4}  {:4}  {:4}     {:16}","loops", "rtt", "min", "max", "avg", "hist", "errs", "addr");
     loop {
-        for ip in receiver.try_iter() {
-            let t = targets[&ip].lock().unwrap();
-            println!("\n{}: {:?}", t.addr(), t);
+        let incoming = receiver.try_recv();
+        match incoming {
+            Ok(t) => {
+                print!("{:012} ", ctr);
+                print!("{:4}  {:4}  {:4}  {:4}  {:4}  {:4}", t.last_rtt(), t.min_rtt(), t.max_rtt(), t.avg_rtt(),
+                       t.hist_iter().count(), t.error_count()); std::io::stdout().flush();
+                println!("    {:16}", t.addr().to_string());
+            }
+            Err(TryRecvError::Empty) => {},
+            Err(TryRecvError::Disconnected) => {println!("Disconnected?");}
         }
-        print!("."); std::io::stdout().flush();
-        thread::sleep(SLEEPTIME);
+        std::io::stdout().flush();
+        ctr += 1;
+
+        thread::sleep(Duration::from_millis(1));
     }
 }
 

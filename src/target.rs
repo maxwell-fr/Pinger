@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::vec_deque::Iter;
 use std::collections::VecDeque;
 use std::net::IpAddr;
@@ -15,6 +16,11 @@ pub struct Target {
     last_rtt: u32,
     /// Average RTT
     avg_rtt: u32,
+    /// highest RTT
+    max_rtt: u32,
+    /// lowest RTT
+    min_rtt: u32,
+
     /// The most recent RTT values
     rtt_hist: VecDeque<u32>,
 
@@ -53,6 +59,8 @@ impl Target {
             address,
             last_rtt: 0,
             avg_rtt: 0,
+            max_rtt: 0,
+            min_rtt: u32::MAX,
             rtt_hist: VecDeque::with_capacity(Self::HIST_SIZE),
             error_count: 0,
             config: TargetConfig {
@@ -89,13 +97,14 @@ impl Target {
         }
 
         self.rtt_hist.push_back(rtt);
+        self.max_rtt = max(self.max_rtt, rtt);
+        self.min_rtt = min(self.min_rtt, rtt);
     }
 
     /// Helper function to compute and store the RTT average
-    fn update_rtt_avg(&mut self) -> u32 {
+    fn update_rtt_avg(&mut self) {
         let total: u32 = self.rtt_hist.iter().sum();
         self.avg_rtt = total / self.rtt_hist.len() as u32;
-        self.avg_rtt
     }
 
     /// Get the target IpAddr
@@ -120,6 +129,13 @@ impl Target {
         self.avg_rtt
     }
 
+    pub fn min_rtt(&self) -> u32 {
+        self.min_rtt
+    }
+
+    pub fn max_rtt(&self) -> u32 {
+        self.max_rtt
+    }
 
 }
 
