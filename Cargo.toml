@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 ping-rs = "0.1.2"
+eframe = "0.26.2"
+env_logger = "0.11.2"
 

@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use std::collections::vec_deque::Iter;
 use std::collections::VecDeque;
 use std::net::IpAddr;
+use std::time::Duration;
 use crate::ReplyStatus;
 
 /// Contains configuration and historical details for a given target
@@ -13,13 +14,13 @@ pub struct Target {
     options: TargetOptions,
 
     /// Most recent RTT (round trip time) in milliseconds
-    last_rtt: u32,
+    last_rtt: Option<u32>,
     /// Average RTT
-    avg_rtt: u32,
+    avg_rtt: Option<u32>,
     /// highest RTT
-    max_rtt: u32,
+    max_rtt: Option<u32>,
     /// lowest RTT
-    min_rtt: u32,
+    min_rtt: Option<u32>,
 
     /// The most recent RTT values
     rtt_hist: VecDeque<u32>,
@@ -36,9 +37,9 @@ pub struct TargetOptions {
     pub rtt_high_threshold: u32,
 
     /// How long to wait (in seconds) between checks
-    pub sleep_period_sec: u32,
+    pub sleep_duration: Duration,
     /// How long to wait (in seconds) for a response
-    pub timeout_period_sec: u32,
+    pub timeout_duration: Duration,
 
     /// How many failed responses in a row are considered a problem
     pub error_count_threshold: u32,
@@ -52,21 +53,21 @@ impl Target {
     const HIST_SIZE: usize = 120;
 
     /// Create a new Target object with the needed parameters.
-    pub fn new(friendly_name: String, address: IpAddr, sleep_period_sec: u32, timeout_period_sec: u32,
-               rtt_high_threshold: u32, error_count_threshold: u32) -> Target {
+    pub fn new(friendly_name: String, address: IpAddr, sleep_period_sec: Duration,
+               timeout_period_sec: Duration, rtt_high_threshold: u32, error_count_threshold: u32) -> Target {
         Target {
             friendly_name,
             address,
-            last_rtt: 0,
-            avg_rtt: 0,
-            max_rtt: 0,
-            min_rtt: u32::MAX,
+            last_rtt: None,
+            avg_rtt: None,
+            max_rtt: None,
+            min_rtt: None,
             rtt_hist: VecDeque::with_capacity(Self::HIST_SIZE),
             error_count: 0,
             options: TargetOptions {
                 rtt_high_threshold,
-                sleep_period_sec,
-                timeout_period_sec,
+                sleep_duration: sleep_period_sec,
+                timeout_duration: timeout_period_sec,
                 error_count_threshold
             }
         }
@@ -77,7 +78,7 @@ impl Target {
         match reply_status {
             ReplyStatus::SuccessTimed(rtt) => {
                 self.push_rtt(rtt);
-                self.last_rtt = rtt;
+                self.last_rtt = Some(rtt);
                 self.update_rtt_avg();
                 if self.error_count > 0 {
                     self.error_count -= 1;
@@ -97,14 +98,14 @@ impl Target {
         }
 
         self.rtt_hist.push_back(rtt);
-        self.max_rtt = max(self.max_rtt, rtt);
-        self.min_rtt = min(self.min_rtt, rtt);
+        self.max_rtt = Some(max(self.max_rtt.unwrap_or(0), rtt));
+        self.min_rtt = Some(min(self.min_rtt.unwrap_or(u32::MAX), rtt));
     }
 
     /// Helper function to compute and store the RTT average
     fn update_rtt_avg(&mut self) {
         let total: u32 = self.rtt_hist.iter().sum();
-        self.avg_rtt = total / self.rtt_hist.len() as u32;
+        self.avg_rtt = Some(total / self.rtt_hist.len() as u32);
     }
 
     /// Get the target IpAddr
@@ -121,24 +122,28 @@ impl Target {
         self.error_count
     }
 
-    pub fn last_rtt(&self) -> u32 {
+    pub fn last_rtt(&self) -> Option<u32> {
         self.last_rtt
     }
 
-    pub fn avg_rtt(&self) -> u32 {
+    pub fn avg_rtt(&self) -> Option<u32> {
         self.avg_rtt
     }
 
-    pub fn min_rtt(&self) -> u32 {
+    pub fn min_rtt(&self) -> Option<u32> {
         self.min_rtt
     }
 
-    pub fn max_rtt(&self) -> u32 {
+    pub fn max_rtt(&self) -> Option<u32> {
         self.max_rtt
     }
 
     pub fn get_options(&self) -> &TargetOptions {
         &self.options
+    }
+
+    pub fn name(&self) -> &str {
+        &self.friendly_name
     }
 
 

@@ -1,58 +1,20 @@
-use std::hash::Hash;
-use std::io::Write;
 use std::net::IpAddr;
-use std::sync::mpsc;
-use std::sync::mpsc::TryRecvError;
-use std::thread;
 use std::time::Duration;
+use eframe::egui;
 
 use ping_rs::*;
 
-use pinger::{Pinger, Target};
+use pinger::Target;
+use crate::gui::PingerApplication;
 
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
 const TIMEOUT: Duration = Duration::from_secs(5);
-const SLEEPTIME: Duration = Duration::from_secs(1);
 const SLEEPTIMEP: Duration = Duration::from_millis(4000);
 
+mod gui;
 
 
-fn multiping() {
-    let ips = vec![IpAddr::from([1,1,1,1]),
-            IpAddr::from([8,8,8,8]),
-            IpAddr::from([192,168,1,1]),
-            IpAddr::from([20,50,166,83])];
-    let (sender, receiver) = mpsc::channel();
-
-    let mut pingers = vec![];
-
-    for ip in ips {
-        let sender = sender.clone();
-        let friendly = format!("Tester {}", ip.to_string());
-        pingers.push(Pinger::new(Target::new(friendly, ip.clone(),10,5,50,10), sender));
-    }
-
-    let mut ctr: u64 = 0;
-    println!("{:12} {:4}  {:4}  {:4}  {:4}  {:4}  {:4}     {:16}","loops", "rtt", "min", "max", "avg", "hist", "errs", "addr");
-    loop {
-        let incoming = receiver.try_recv();
-        match incoming {
-            Ok(t) => {
-                print!("{:012} ", ctr);
-                print!("{:4}  {:4}  {:4}  {:4}  {:4}  {:4}", t.last_rtt(), t.min_rtt(), t.max_rtt(), t.avg_rtt(),
-                       t.hist_iter().count(), t.error_count()); std::io::stdout().flush();
-                println!("    {:16}", t.addr().to_string());
-            }
-            Err(TryRecvError::Empty) => {},
-            Err(TryRecvError::Disconnected) => {println!("Disconnected?");}
-        }
-        std::io::stdout().flush();
-        ctr += 1;
-        thread::sleep(Duration::from_millis(1));
-    }
-}
-
-fn main() {
+fn main() -> std::result::Result<(), eframe::Error> {
     let ip = IpAddr::from([1, 1, 1, 1]);
     println!("Pinging {ip}...");
     let data = [8; 8];
@@ -68,5 +30,25 @@ fn main() {
         }
     }
 
-    multiping();
+    let ips = vec![IpAddr::from([1,1,1,1]),
+                   IpAddr::from([8,8,8,8]),
+                   IpAddr::from([192,168,1,1]),
+                   IpAddr::from([20,50,166,83])];
+
+    env_logger::init();
+    let mut pinger_app = PingerApplication::new();
+    for ip in ips {
+        let friendly = format!("Tester {}", ip.to_string());
+        pinger_app.add_target(Target::new(friendly, ip.clone(),SLEEPTIMEP,TIMEOUT,50,10));
+    }
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([960.0, 360.0]),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Pinger Test",
+        options,
+        Box::new(|_| Box::new(pinger_app)),
+    )
 }

@@ -2,7 +2,6 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::Duration;
 
 use ping_rs::{PingOptions, send_ping};
 
@@ -35,8 +34,8 @@ impl Pinger {
         let mut target = Box::new(target);
         let data = [8; 8];
         let options = target.get_options();
-        let timeout = Duration::from_secs(options.timeout_period_sec as u64);
-        let sleep_time = Duration::from_secs(options.sleep_period_sec as u64);
+        let timeout = options.timeout_duration;
+        let sleep_time = options.sleep_duration;
         let mut paused = false;
         loop {
             //check for a signal
