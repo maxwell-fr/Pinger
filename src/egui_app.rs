@@ -9,7 +9,7 @@ use eframe::egui::Context;
 use pinger::{Pinger, Target};
 use crate::{SLEEPTIMEP, TIMEOUT};
 
-pub struct PingerApplication {
+pub struct EguiApplication {
     pingers: Vec<Pinger>,
     targets: HashMap<IpAddr, Box<Target>>,
     channel_tx: Sender<Box<Target>>,
@@ -19,7 +19,7 @@ pub struct PingerApplication {
     add_dialog_input: String
 }
 
-impl eframe::App for PingerApplication {
+impl eframe::App for EguiApplication {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         ctx.request_repaint_after(Duration::from_millis(250)); // force periodic UI redraws
         ctx.set_pixels_per_point(2.0); // todo: this should be configurable
@@ -72,7 +72,7 @@ impl eframe::App for PingerApplication {
     }
 }
 
-impl PingerApplication {
+impl EguiApplication {
     pub fn new() -> Self {
         let (channel_tx, channel_rx) = mpsc::channel();
         Self {

@@ -5,13 +5,13 @@ use eframe::egui;
 use ping_rs::*;
 
 use pinger::Target;
-use crate::gui::PingerApplication;
+use crate::egui_app::EguiApplication;
 
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
 const TIMEOUT: Duration = Duration::from_secs(5);
 const SLEEPTIMEP: Duration = Duration::from_millis(4000);
 
-mod gui;
+mod egui_app;
 
 
 fn main() -> std::result::Result<(), eframe::Error> {
@@ -36,7 +36,7 @@ fn main() -> std::result::Result<(), eframe::Error> {
                    IpAddr::from([20,50,166,83])];
 
     env_logger::init();
-    let mut pinger_app = PingerApplication::new();
+    let mut pinger_app = EguiApplication::new();
     for ip in ips {
         let friendly = format!("Tester {}", ip.to_string());
         pinger_app.add_target(Target::new(friendly, ip.clone(),SLEEPTIMEP,TIMEOUT,50,10));
