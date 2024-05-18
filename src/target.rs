@@ -110,7 +110,7 @@ impl Target {
 
     /// Get the target IpAddr
     pub fn addr(&self) -> IpAddr {
-        self.address.clone()
+        self.address
     }
 
     /// Get a front-to-back (oldest to newest) iterator

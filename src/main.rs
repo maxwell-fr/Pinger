@@ -38,8 +38,8 @@ fn main() -> std::result::Result<(), eframe::Error> {
     env_logger::init();
     let mut pinger_app = EguiApplication::new();
     for ip in ips {
-        let friendly = format!("Tester {}", ip.to_string());
-        pinger_app.add_target(Target::new(friendly, ip.clone(),SLEEPTIMEP,TIMEOUT,50,10));
+        let friendly = format!("Tester {}", ip);
+        pinger_app.add_target(Target::new(friendly, ip,SLEEPTIMEP,TIMEOUT,50,10));
     }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

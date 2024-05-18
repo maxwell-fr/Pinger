@@ -61,7 +61,7 @@ impl eframe::App for EguiApplication {
             }
             let h = format!("{:30} {:4}  {:10}  {:10}  {:4}  {:4}  {:4}    {:16}","name", "rtt", "min", "max", "avg", "hist", "errs", "addr");
             ui.monospace(h);
-            for (_, t) in &self.targets {
+            for t in self.targets.values() {
                 let s = format!("{:30} {:4}  {:10}  {:10}  {:4}  {:4}  {:4}    {:16}",
                                 t.name(), num_or_dashes(t.last_rtt()), num_or_dashes(t.min_rtt()), num_or_dashes(t.max_rtt()),
                                 num_or_dashes(t.avg_rtt()),
