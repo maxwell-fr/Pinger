@@ -3,15 +3,14 @@ use std::collections::vec_deque::Iter;
 use std::collections::VecDeque;
 use std::net::IpAddr;
 use std::time::Duration;
+use serde::{Deserialize, Serialize};
 use crate::ReplyStatus;
 
 /// Contains configuration and historical details for a given target
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Target {
     friendly_name: String,
     address: IpAddr,
-
-    options: TargetOptions,
 
     /// Most recent RTT (round trip time) in milliseconds
     last_rtt: Option<u32>,
@@ -28,33 +27,26 @@ pub struct Target {
     /// Error count
     /// An error increments, while a success decrements (if > 0)
     error_count: u32,
-}
 
-/// Contains Configuration information for a Target
-#[derive(Debug, Copy, Clone)]
-pub struct TargetOptions {
     /// RTT above this value is considered "high"
-    pub rtt_high_threshold: u32,
+    rtt_high_threshold: u32,
 
     /// How long to wait (in seconds) between checks
-    pub sleep_duration: Duration,
+    sleep_duration: u32,
     /// How long to wait (in seconds) for a response
-    pub timeout_duration: Duration,
+    timeout_duration: u32,
 
     /// How many failed responses in a row are considered a problem
-    pub error_count_threshold: u32,
+    error_count_threshold: u32
 }
-
-
-
 
 
 impl Target {
     const HIST_SIZE: usize = 120;
 
     /// Create a new Target object with the needed parameters.
-    pub fn new(friendly_name: String, address: IpAddr, sleep_period_sec: Duration,
-               timeout_period_sec: Duration, rtt_high_threshold: u32, error_count_threshold: u32) -> Target {
+    pub fn new(friendly_name: String, address: IpAddr, sleep_period_ms: u32,
+               timeout_period_ms: u32, rtt_high_threshold_ms: u32, error_count_threshold: u32) -> Target {
         Target {
             friendly_name,
             address,
@@ -64,12 +56,10 @@ impl Target {
             min_rtt: None,
             rtt_hist: VecDeque::with_capacity(Self::HIST_SIZE),
             error_count: 0,
-            options: TargetOptions {
-                rtt_high_threshold,
-                sleep_duration: sleep_period_sec,
-                timeout_duration: timeout_period_sec,
-                error_count_threshold
-            }
+            rtt_high_threshold: rtt_high_threshold_ms,
+            sleep_duration: sleep_period_ms,
+            timeout_duration: timeout_period_ms,
+            error_count_threshold
         }
     }
 
@@ -138,14 +128,43 @@ impl Target {
         self.max_rtt
     }
 
-    pub fn get_options(&self) -> &TargetOptions {
-        &self.options
-    }
-
     pub fn name(&self) -> &str {
         &self.friendly_name
     }
 
+    pub fn rtt_high_threshold(&self) -> Duration {
+        Duration::from_millis(self.rtt_high_threshold as u64)
+    }
+
+    pub fn sleep_duration(&self) -> Duration {
+        Duration::from_millis(self.sleep_duration as u64)
+    }
+
+    pub fn timeout_duration(&self) -> Duration {
+        Duration::from_millis(self.timeout_duration as u64)
+    }
+
+    pub fn error_count_threshold(&self) -> u32 {
+        self.error_count_threshold
+    }
 
 }
 
+//impl Default for Target {
+//    fn default() -> Self {
+//        Target {
+//            friendly_name: "Default".to_string(),
+//            address: IpAddr::from([127,0,0,1]),
+//            last_rtt: None,
+//            avg_rtt: None,
+//            max_rtt: None,
+//            min_rtt: None,
+//            rtt_hist: Default::default(),
+//            error_count: 0,
+//            rtt_high_threshold: Default::default(),
+//            sleep_duration: Default::default(),
+//            timeout_duration: Default::default(),
+//            error_count_threshold: 0,
+//        }
+//    }
+//}

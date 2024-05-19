@@ -33,9 +33,8 @@ impl Pinger {
     fn go(target: Target, signal_rx: Receiver<Signal>, channel_tx: Sender<Box<Target>>) {
         let mut target = Box::new(target);
         let data = [8; 8];
-        let options = target.get_options();
-        let timeout = options.timeout_duration;
-        let sleep_time = options.sleep_duration;
+        let timeout = target.timeout_duration();
+        let sleep_time = target.sleep_duration();
         let mut paused = false;
         loop {
             //check for a signal

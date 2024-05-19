@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
-use eframe::{egui, Frame};
+use eframe::{egui, Frame, epaint};
 use eframe::egui::Context;
 use pinger::{Pinger, Target};
 use crate::{SLEEPTIMEP, TIMEOUT};
@@ -22,7 +22,7 @@ pub struct EguiApplication {
 impl eframe::App for EguiApplication {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         ctx.request_repaint_after(Duration::from_millis(250)); // force periodic UI redraws
-        ctx.set_pixels_per_point(2.0); // todo: this should be configurable
+        ctx.set_pixels_per_point(2.0); //TODO: this should be configurable
 
         //fetch our target updates, if any
         for t in self.channel_rx.try_iter() {
@@ -59,14 +59,29 @@ impl eframe::App for EguiApplication {
             if ui.button("Add Target").clicked() {
                 self.add_dialog_open = true;
             }
-            let h = format!("{:30} {:4}  {:10}  {:10}  {:4}  {:4}  {:4}    {:16}","name", "rtt", "min", "max", "avg", "hist", "errs", "addr");
-            ui.monospace(h);
             for t in self.targets.values() {
-                let s = format!("{:30} {:4}  {:10}  {:10}  {:4}  {:4}  {:4}    {:16}",
-                                t.name(), num_or_dashes(t.last_rtt()), num_or_dashes(t.min_rtt()), num_or_dashes(t.max_rtt()),
-                                num_or_dashes(t.avg_rtt()),
-                                t.hist_iter().count(), t.error_count(), t.addr().to_string());
-                ui.monospace(s);
+                let fill_color = if t.error_count() > 0 {
+                    egui::Color32::RED
+                }
+                else {
+                    egui::Color32::GREEN
+                };
+                
+                let s = format!("rtt: {} min/max/avg: {}/{}/{}  errors: {:4} ip: {:16}",
+                                num_or_dashes(t.last_rtt()), num_or_dashes(t.min_rtt()), num_or_dashes(t.max_rtt()),
+                                num_or_dashes(t.avg_rtt()), t.error_count(), t.addr().to_string());
+                egui::Frame {
+                        inner_margin: 5.0.into(),
+                        outer_margin: 5.0.into(),
+                        rounding: 0.0.into(),
+                        fill: fill_color,
+                        stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
+                        shadow: epaint::Shadow::NONE
+                }
+                .show(ui, |ui| {
+                    ui.monospace(egui::RichText::new(t.name()).color(egui::Color32::BLACK).size(24.0));
+                    ui.monospace(egui::RichText::new(s).color(egui::Color32::BLACK).size(10.0));
+                });
             }
         });
     }
