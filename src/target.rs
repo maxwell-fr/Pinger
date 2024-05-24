@@ -9,7 +9,10 @@ use crate::ReplyStatus;
 /// Contains configuration and historical details for a given target
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Target {
+    /// Friendly name appears the largest
     friendly_name: String,
+
+    /// The IP Address of the target
     address: IpAddr,
 
     /// Most recent RTT (round trip time) in milliseconds

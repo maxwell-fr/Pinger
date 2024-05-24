@@ -7,8 +7,12 @@ use ping_rs::{PingOptions, send_ping};
 
 use crate::Target;
 
+/// Maintains state of a thread and its signal channel
 pub struct Pinger {
+    /// The thread handle for this object
     thread_handle: JoinHandle<()>,
+
+    /// The signalling channel for this object
     signal_tx: Sender<Signal>
 }
 
