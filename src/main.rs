@@ -1,3 +1,4 @@
+use std::fs;
 use std::net::IpAddr;
 use std::time::Duration;
 use eframe::egui;
@@ -18,7 +19,9 @@ mod config;
 
 
 fn main() -> std::result::Result<(), eframe::Error> {
-    let mut conf = Config::default();
+    let conf_str = fs::read_to_string("config").unwrap();
+    let mut conf: Config = toml::from_str(&conf_str).unwrap();
+    println!("{:?}", conf);
     let ip = IpAddr::from([1, 1, 1, 1]);
     println!("Pinging {ip}...");
     let data = [8; 8];
@@ -34,19 +37,12 @@ fn main() -> std::result::Result<(), eframe::Error> {
         }
     }
 
-    let ips = vec![IpAddr::from([1,1,1,1]),
-                   IpAddr::from([8,8,8,8]),
-                   IpAddr::from([192,168,1,1]),
-                   IpAddr::from([20,50,166,83])];
-
     env_logger::init();
     let mut pinger_app = EguiApplication::new();
-    for ip in ips {
-        let friendly = format!("Tester {}", ip);
-        let t = Target::new(friendly, ip,SLEEPTIMEP,TIMEOUT,50,10);
-        conf.add_target(t.clone());
-        pinger_app.add_target(t);
+    for targ in conf.targets() {
+        pinger_app.add_target(targ.clone());
     }
+
     println!("{}", toml::to_string_pretty(&conf).unwrap());
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

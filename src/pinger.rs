@@ -16,6 +16,7 @@ pub struct Pinger {
     signal_tx: Sender<Signal>
 }
 
+/// The signals a thread can understand
 enum Signal {
     Stop,
     Pause,
