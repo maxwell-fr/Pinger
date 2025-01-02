@@ -2,7 +2,6 @@ use std::fs;
 use std::net::IpAddr;
 use std::time::Duration;
 use eframe::egui;
-use toml;
 
 use ping_rs::*;
 
@@ -11,7 +10,7 @@ use crate::egui_app::EguiApplication;
 use crate::config::Config;
 
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
-const TIMEOUT: u32 = 5;
+const TIMEOUT: u32 = 500;
 const SLEEPTIMEP: u32 = 4000;
 
 mod egui_app;
@@ -20,7 +19,7 @@ mod config;
 
 fn main() -> std::result::Result<(), eframe::Error> {
     let conf_str = fs::read_to_string("config").unwrap();
-    let mut conf: Config = toml::from_str(&conf_str).unwrap();
+    let conf: Config = toml::from_str(&conf_str).unwrap();
     println!("{:?}", conf);
     let ip = IpAddr::from([1, 1, 1, 1]);
     println!("Pinging {ip}...");
@@ -52,6 +51,6 @@ fn main() -> std::result::Result<(), eframe::Error> {
     eframe::run_native(
         "Pinger Test",
         options,
-        Box::new(|_| Box::new(pinger_app)),
+        Box::new(|_| Ok(Box::new(pinger_app)))
     )
 }

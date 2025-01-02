@@ -153,21 +153,3 @@ impl Target {
 
 }
 
-//impl Default for Target {
-//    fn default() -> Self {
-//        Target {
-//            friendly_name: "Default".to_string(),
-//            address: IpAddr::from([127,0,0,1]),
-//            last_rtt: None,
-//            avg_rtt: None,
-//            max_rtt: None,
-//            min_rtt: None,
-//            rtt_hist: Default::default(),
-//            error_count: 0,
-//            rtt_high_threshold: Default::default(),
-//            sleep_duration: Default::default(),
-//            timeout_duration: Default::default(),
-//            error_count_threshold: 0,
-//        }
-//    }
-//}

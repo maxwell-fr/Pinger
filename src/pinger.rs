@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, RwLock};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::thread;
 use std::thread::JoinHandle;
@@ -13,7 +13,10 @@ pub struct Pinger {
     thread_handle: JoinHandle<()>,
 
     /// The signalling channel for this object
-    signal_tx: Sender<Signal>
+    signal_tx: Sender<Signal>,
+
+    /// The data block
+    data: Arc<RwLock<Target>>
 }
 
 /// The signals a thread can understand
@@ -26,20 +29,20 @@ enum Signal {
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
 
 impl Pinger {
-    pub fn new(target: Target, channel_tx: Sender<Box<Target>>) -> Pinger {
+    pub fn new(target: Target) -> Pinger {
         let (signal_tx, signal_rx) = mpsc::channel();
-        let thread_handle = thread::spawn(move || { Pinger::go(target, signal_rx, channel_tx) });
+        let data = Arc::new(RwLock::new(target));
+        let target_data = data.clone();
+        let thread_handle = thread::spawn(move || { Pinger::go(target_data, signal_rx ) });
         Pinger {
             thread_handle,
-            signal_tx
+            signal_tx,
+            data
         }
     }
 
-    fn go(target: Target, signal_rx: Receiver<Signal>, channel_tx: Sender<Box<Target>>) {
-        let mut target = Box::new(target);
-        let data = [8; 8];
-        let timeout = target.timeout_duration();
-        let sleep_time = target.sleep_duration();
+    fn go(target_data: Arc<RwLock<Target>>, signal_rx: Receiver<Signal>) {
+        let ping_data = [8; 8]; // TODO: make this cooler
         let mut paused = false;
         loop {
             //check for a signal
@@ -50,15 +53,19 @@ impl Pinger {
                 Err(TryRecvError::Empty) => {},
                 Err(TryRecvError::Disconnected) => break
             }
-            // do the ping and send a clone of the updated target object onward
+
+            //get target config data
+            let (timeout, sleep_time, addr) = {
+                let target = target_data.read().unwrap();
+                (target.timeout_duration(), target.sleep_duration(), target.addr())
+            };
+
+            //do the ping and update the data
             if !paused {
-                let res = send_ping(&target.addr(), timeout, &data, Some(&PING_OPTS));
+                let res = send_ping(&addr, timeout, &ping_data, Some(&PING_OPTS));
+                let mut target = target_data.write().unwrap();
 
                 target.update_from_reply(res.into());
-
-                if channel_tx.send(target.clone()).is_err() {
-                    break;
-                }
             }
             thread::sleep(sleep_time);
         }
@@ -66,6 +73,10 @@ impl Pinger {
 
     pub fn get_handle(&self) -> &JoinHandle<()> {
         &self.thread_handle
+    }
+
+    pub fn get_data(&self) -> Target {
+        self.data.read().unwrap().clone()
     }
 
     pub fn stop(&self) {
