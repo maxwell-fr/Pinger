@@ -3,8 +3,9 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
+use eframe::emath::Numeric;
 use eframe::{egui, Frame, epaint};
-use eframe::egui::Context;
+use eframe::egui::{Context, Pos2};
 use pinger::{Engine, Target};
 use crate::{SLEEPTIMEP, TIMEOUT};
 
@@ -32,11 +33,15 @@ impl eframe::App for EguiApplication {
 
         self.add_target_dialog(ctx);
 
-
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::top("TopBar")
+        .show(ctx, |ui| {
             if ui.button("Add Target").clicked() {
                 self.add_dialog_open = true;
             }
+        });
+
+        egui::CentralPanel::default()
+        .show(ctx, |ui| {
             for a in &self.engine.get_addresses() {
                 self.pinger_data(a, ctx);
             }
@@ -56,32 +61,61 @@ impl EguiApplication {
                 false => egui::Color32::GREEN,
             };
             
-            let s = format!("rtt: {} min/max/avg: {}/{}/{}  errors: {:4} ip: {:16}",
+            let s = format!("rtt: {:5} min/max/avg: {:^5}/{:^5}/{:^5}  errors: {:^6}    ",
                             n_o_d(t.last_rtt()), n_o_d(t.min_rtt()), n_o_d(t.max_rtt()),
-                            n_o_d(t.avg_rtt()), t.error_count(), t.addr().to_string());
+                            n_o_d(t.avg_rtt()), t.error_count());
+            let i = format!("ip: {}", t.addr());
 
 
-            let window = egui::Window::new(addr.to_string());
-            window
-            .resizable(false)
+            let area = egui::Area::new(addr.to_string().into());
+            area
             .show(ctx, |ui| {
-               egui::Frame {
+                egui::Frame {
                         inner_margin: 5.0.into(),
                         outer_margin: 0.0.into(),
                         rounding: 0.0.into(),
                         fill: fill_color,
                         stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
                         shadow: epaint::Shadow::NONE
-               }.show(ui, |ui| {
-                   ui.monospace(egui::RichText::new(t.name()).color(egui::Color32::BLACK).size(24.0));
-                   ui.monospace(egui::RichText::new(s).color(egui::Color32::BLACK).size(10.0));
-               });
+                }.show(ui, |ui| {
+                        ui.monospace(egui::RichText::new(t.name()).color(egui::Color32::BLACK).size(24.0));
+                        ui.monospace(egui::RichText::new(i).color(egui::Color32::BLACK).size(10.0));
+                        ui.monospace(egui::RichText::new(s).color(egui::Color32::BLACK).size(10.0));
+                        let target = self.engine.get(addr).unwrap().clone();
+                        let history: Vec<Option<u32>> = target.hist_iter().copied().collect();
+
+                        let graph_height = 20.0;
+                        let graph_width = 200.0;
+                        let scaled_height = target.max_rtt().unwrap_or(1) as f32 / graph_height;
+                        let (response, painter) = ui.allocate_painter([graph_width, graph_height].into(), egui::Sense::focusable_noninteractive());
+                        let rect = response.rect;
+
+                        let mut last_p = Pos2::new(rect.min.x, rect.max.y);
+                        let skip = if history.len() <= graph_width as usize {
+                            0
+                        }
+                        else {
+                            history.len() - graph_width as usize
+                        };
+
+                        for (x, h) in target.hist_iter().skip(skip).enumerate() {
+                            let y = h.unwrap_or(0) as f32;
+                            let p = Pos2::new((x as f32) + rect.min.x, rect.max.y - (y)/scaled_height);
+                            let color = match h {
+                                Some(_) => egui::Color32::BLUE,
+                                None => egui::Color32::TRANSPARENT,
+                            };
+                            painter.line_segment([last_p, p], egui::Stroke::new(1.0, color));
+                            last_p = p;
+                        }
+
+                });
             });
     }
 
     fn add_target_dialog(&mut self, ctx: &Context) {
         if self.add_dialog_open {
-            egui::Window::new("Add Target")
+            egui::Modal::new("Add Target".into())
                 .show(ctx, |ui| {
                     ui.text_edit_singleline(&mut self.add_dialog_input);
 

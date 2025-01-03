@@ -25,7 +25,7 @@ pub struct Target {
     min_rtt: Option<u32>,
 
     /// The most recent RTT values
-    rtt_hist: VecDeque<u32>,
+    rtt_hist: VecDeque<Option<u32>>,
 
     /// Error count
     /// An error increments, while a success decrements (if > 0)
@@ -45,7 +45,7 @@ pub struct Target {
 
 
 impl Target {
-    const HIST_SIZE: usize = 120;
+    const HIST_SIZE: usize = 300;
 
     /// Create a new Target object with the needed parameters.
     pub fn new(friendly_name: String, address: IpAddr, sleep_period_ms: u32,
@@ -70,34 +70,35 @@ impl Target {
     pub fn update_from_reply(&mut self, reply_status: ReplyStatus) {
         match reply_status {
             ReplyStatus::SuccessTimed(rtt) => {
-                self.push_rtt(rtt);
+                self.push_rtt(Some(rtt));
                 self.last_rtt = Some(rtt);
-                self.update_rtt_avg();
                 if self.error_count > 0 {
                     self.error_count -= 1;
                 }
             }
             ReplyStatus::TimedOut | ReplyStatus::OtherFailure => {
+                self.push_rtt(None);
                 self.error_count += 1;
             }
         }
 
     }
 
-    /// Helper function to push to the Deque and trim it if full
-    fn push_rtt(&mut self, rtt: u32) {
+    /// Helper function to push to the Deque and trim it if full. Also updates stats.
+    fn push_rtt(&mut self, rtt: Option<u32>) {
         if self.rtt_hist.len() >= Self::HIST_SIZE {
             self.rtt_hist.pop_front();
         }
 
         self.rtt_hist.push_back(rtt);
-        self.max_rtt = Some(max(self.max_rtt.unwrap_or(0), rtt));
-        self.min_rtt = Some(min(self.min_rtt.unwrap_or(u32::MAX), rtt));
+        self.max_rtt = self.rtt_hist.iter().filter_map(|r| *r).max();
+        self.min_rtt = self.rtt_hist.iter().filter_map(|r| *r).min();
+        self.update_rtt_avg();
     }
 
     /// Helper function to compute and store the RTT average
     fn update_rtt_avg(&mut self) {
-        let total: u32 = self.rtt_hist.iter().sum();
+        let total: u32 = self.rtt_hist.iter().filter_map(|r| *r).sum();
         self.avg_rtt = Some(total / self.rtt_hist.len() as u32);
     }
 
@@ -107,7 +108,7 @@ impl Target {
     }
 
     /// Get a front-to-back (oldest to newest) iterator
-    pub fn hist_iter(&self) -> Iter<u32> {
+    pub fn hist_iter(&self) -> Iter<Option<u32>> {
         self.rtt_hist.iter()
     }
 

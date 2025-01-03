@@ -10,8 +10,8 @@ use crate::egui_app::EguiApplication;
 use crate::config::Config;
 
 const PING_OPTS: PingOptions = PingOptions { ttl: 128, dont_fragment: true };
-const TIMEOUT: u32 = 500;
-const SLEEPTIMEP: u32 = 4000;
+const TIMEOUT: u32 = 400;
+const SLEEPTIMEP: u32 = 500;
 
 mod egui_app;
 mod config;
