@@ -3,19 +3,26 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
-use eframe::emath::Numeric;
 use eframe::{egui, Frame, epaint};
 use eframe::egui::{Context, Pos2};
 use pinger::{Engine, Target};
 use crate::{SLEEPTIMEP, TIMEOUT};
+
+#[derive(Default)]
+struct AddTargetDialog {
+    is_open: bool,
+    name: String,
+    ip: String,
+    interval: String
+}
+
 
 pub struct EguiApplication {
     engine: Engine,
     channel_tx: Sender<Box<Target>>,
     channel_rx: Receiver<Box<Target>>,
 
-    add_dialog_open: bool,
-    add_dialog_input: String
+    add_dialog: AddTargetDialog
 }
 
 /// helper function to simplify displaying option numbers
@@ -36,7 +43,7 @@ impl eframe::App for EguiApplication {
         egui::TopBottomPanel::top("TopBar")
         .show(ctx, |ui| {
             if ui.button("Add Target").clicked() {
-                self.add_dialog_open = true;
+                self.add_dialog.is_open = true;
             }
         });
 
@@ -101,11 +108,11 @@ impl EguiApplication {
                         for (x, h) in target.hist_iter().skip(skip).enumerate() {
                             let y = h.unwrap_or(0) as f32;
                             let p = Pos2::new((x as f32) + rect.min.x, rect.max.y - (y)/scaled_height);
-                            let color = match h {
-                                Some(_) => egui::Color32::BLUE,
-                                None => egui::Color32::TRANSPARENT,
+                            let stroke = match h {
+                                Some(_) => egui::Stroke::new(1.0, egui::Color32::BLUE),
+                                None => egui::Stroke::new(1.0, egui::Color32::TRANSPARENT),
                             };
-                            painter.line_segment([last_p, p], egui::Stroke::new(1.0, color));
+                            painter.line_segment([last_p, p], stroke);
                             last_p = p;
                         }
 
@@ -114,19 +121,22 @@ impl EguiApplication {
     }
 
     fn add_target_dialog(&mut self, ctx: &Context) {
-        if self.add_dialog_open {
+        if self.add_dialog.is_open {
             egui::Modal::new("Add Target".into())
                 .show(ctx, |ui| {
-                    ui.text_edit_singleline(&mut self.add_dialog_input);
+                    ui.label("Name");
+                    ui.text_edit_singleline(&mut self.add_dialog.name);
+                    ui.label("IP Address");
+                    ui.text_edit_singleline(&mut self.add_dialog.ip);
 
                     if ui.button("Add").clicked() {
-                        if let Ok(new_ip) = IpAddr::from_str(&self.add_dialog_input) {
-                            self.add_target(Target::new(self.add_dialog_input.clone(), new_ip,SLEEPTIMEP,TIMEOUT,50,10));
-                            self.add_dialog_open = false;
+                        if let Ok(new_ip) = IpAddr::from_str(&self.add_dialog.ip) {
+                            self.add_target(Target::new(self.add_dialog.name.clone(), new_ip,SLEEPTIMEP,TIMEOUT,50,10));
+                            self.add_dialog.is_open = false;
                         }
                     }
                     if ui.button("Cancel").clicked() {
-                        self.add_dialog_open = false;
+                        self.add_dialog.is_open = false;
                     }
                 });
         }
@@ -138,8 +148,7 @@ impl EguiApplication {
             engine: Engine::new(),
             channel_rx,
             channel_tx,
-            add_dialog_open: false,
-            add_dialog_input: String::new()
+            add_dialog: AddTargetDialog::default()
         }
     }
 
