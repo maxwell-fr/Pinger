@@ -1,4 +1,3 @@
-use std::cmp::{max, min};
 use std::collections::vec_deque::Iter;
 use std::collections::VecDeque;
 use std::net::IpAddr;
@@ -45,7 +44,7 @@ pub struct Target {
 
 
 impl Target {
-    const HIST_SIZE: usize = 300;
+    const HIST_SIZE: usize = 384;
 
     /// Create a new Target object with the needed parameters.
     pub fn new(friendly_name: String, address: IpAddr, sleep_period_ms: u32,
@@ -72,13 +71,9 @@ impl Target {
             ReplyStatus::SuccessTimed(rtt) => {
                 self.push_rtt(Some(rtt));
                 self.last_rtt = Some(rtt);
-                if self.error_count > 0 {
-                    self.error_count -= 1;
-                }
             }
             ReplyStatus::TimedOut | ReplyStatus::OtherFailure => {
                 self.push_rtt(None);
-                self.error_count += 1;
             }
         }
 
@@ -94,6 +89,7 @@ impl Target {
         self.max_rtt = self.rtt_hist.iter().filter_map(|r| *r).max();
         self.min_rtt = self.rtt_hist.iter().filter_map(|r| *r).min();
         self.update_rtt_avg();
+        self.error_count = self.rtt_hist.iter().filter(|r| r.is_none()).count() as u32;
     }
 
     /// Helper function to compute and store the RTT average
@@ -114,6 +110,15 @@ impl Target {
 
     pub fn error_count(&self) -> u32 {
         self.error_count
+    }
+
+    pub fn error_count_recent(&self, n: usize) -> u32 {
+        let len = self.rtt_hist.len();
+        let skip = match n >= len {
+            true => 0,
+            false => len - n
+        };
+        self.rtt_hist.iter().skip(skip).filter(|r| r.is_none()).count() as u32
     }
 
     pub fn last_rtt(&self) -> Option<u32> {

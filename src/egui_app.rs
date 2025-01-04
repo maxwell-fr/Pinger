@@ -62,15 +62,20 @@ impl EguiApplication {
                 return;
             }
             let t = t.unwrap();
+            let error_val = t.error_count_threshold();
+            let warn_val = error_val / 2;
 
-            let fill_color = match t.error_count() > 0 {
-                true => egui::Color32::RED,
-                false => egui::Color32::GREEN,
+            let fill_color = match t.error_count_recent(t.error_count_threshold() as usize) {
+                c if (0 .. warn_val).contains(&c) => egui::Color32::GREEN,
+                c if (warn_val .. error_val).contains(&c) => egui::Color32::YELLOW,
+                _ => egui::Color32::RED,
             };
             
-            let s = format!("rtt: {:5} min/max/avg: {:^5}/{:^5}/{:^5}  errors: {:^6}    ",
+            let s = format!("rtt: {:5} min/max/avg: {:^5}/{:^5}/{:^5}",
                             n_o_d(t.last_rtt()), n_o_d(t.min_rtt()), n_o_d(t.max_rtt()),
-                            n_o_d(t.avg_rtt()), t.error_count());
+                            n_o_d(t.avg_rtt()));
+            let e = format!("err_t: {:^5} err_r: {:^5}",
+                            t.error_count(), t.error_count_recent(t.error_count_threshold() as usize));
             let i = format!("ip: {}", t.addr());
 
 
@@ -85,25 +90,25 @@ impl EguiApplication {
                         stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
                         shadow: epaint::Shadow::NONE
                 }.show(ui, |ui| {
-                        ui.monospace(egui::RichText::new(t.name()).color(egui::Color32::BLACK).size(24.0));
+                        ui.monospace(egui::RichText::new(t.name()).color(egui::Color32::BLACK).size(18.0));
                         ui.monospace(egui::RichText::new(i).color(egui::Color32::BLACK).size(10.0));
                         ui.monospace(egui::RichText::new(s).color(egui::Color32::BLACK).size(10.0));
+                        ui.monospace(egui::RichText::new(e).color(egui::Color32::BLACK).size(10.0));
                         let target = self.engine.get(addr).unwrap().clone();
                         let history: Vec<Option<u32>> = target.hist_iter().copied().collect();
 
-                        let graph_height = 20.0;
-                        let graph_width = 200.0;
+                        let graph_height = 30.0;
+                        let graph_width = 256.0;
                         let scaled_height = target.max_rtt().unwrap_or(1) as f32 / graph_height;
                         let (response, painter) = ui.allocate_painter([graph_width, graph_height].into(), egui::Sense::focusable_noninteractive());
                         let rect = response.rect;
 
-                        let mut last_p = Pos2::new(rect.min.x, rect.max.y);
-                        let skip = if history.len() <= graph_width as usize {
-                            0
-                        }
-                        else {
-                            history.len() - graph_width as usize
+                        let skip = match history.len() <= graph_width as usize {
+                            true => 0,
+                            false => history.len() - graph_width as usize,
                         };
+
+                        let mut last_p = Pos2::new(rect.min.x, rect.max.y);
 
                         for (x, h) in target.hist_iter().skip(skip).enumerate() {
                             let y = h.unwrap_or(0) as f32;
